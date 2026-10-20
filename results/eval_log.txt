@@ -1,0 +1,16 @@
+evaluation jobs: 162 (10 runs; ablations yes; sweep yes)
+evaluation wall time: 8.4s
+
+Main comparison (held-out, mean [95% CI] over runs):
+policy                             Passenger delay                     Freight delay                       Team return            Trains cleared within                          Loop uses
+IQL                   3170.5 [  2957.0,   3413.0]      1509.3 [  1425.9,   1591.9]    -40829.3 [-44070.4, -37974.3]        16.4 [    15.5,     17.5]        14.5 [    13.3,     15.7]
+SARSA                 3218.9 [  2940.3,   3520.2]      1459.9 [  1350.9,   1571.2]    -41485.3 [-45378.9, -37979.0]        16.5 [    15.4,     17.7]        14.2 [    13.2,     15.3]
+FCFS                  4719.1 [  4544.6,   4906.3]         4.1 [     2.3,      6.0]    -56952.2 [-59401.7, -54634.5]        18.5 [    17.7,     19.5]         0.0 [     0.0,      0.0]
+Passenger-first       3040.9 [  2816.2,   3289.3]      2002.0 [  1922.4,   2080.4]    -38930.6 [-42152.4, -35976.1]        15.1 [    14.2,     16.3]         8.9 [     8.4,      9.4]
+Random                4276.5 [  4029.7,   4516.3]       732.0 [   696.2,    770.4]    -52919.0 [-56067.8, -49727.2]        17.6 [    16.7,     18.6]        23.2 [    22.2,     24.3]
+
+ - IQL is behind, but not significantly different from, the passenger-first baseline on team return: -40,829 vs -38,931 (paired diff -1,899, 95% CI [-3,291, -448], Holm p=0.117).
+ - IQL is behind, but not significantly different from, the passenger-first baseline on passenger delay: 3,171 vs 3,041 (paired diff +130, 95% CI [+17, +240], Holm p=0.188).
+ - SARSA is behind, but not significantly different from, the passenger-first baseline on team return: -41,485 vs -38,931 (paired diff -2,555, 95% CI [-5,032, -316], Holm p=0.141).
+ - SARSA is behind, but not significantly different from, the passenger-first baseline on passenger delay: 3,219 vs 3,041 (paired diff +178, 95% CI [-5, +381], Holm p=0.250).
+ - IQL vs SARSA team return: paired diff +656 (95% CI [-1,875, +3,123], Holm p=0.635).

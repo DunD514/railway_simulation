@@ -1,0 +1,97 @@
+# Multi-Agent Precedence Control for Mixed Passenger-Freight Rail Corridors
+# Single source of configuration. Every random draw is derived from `seed`.
+
+seed: 20261006
+
+corridor:
+  # UP direction only (Kanpur -> Asansol, eastbound in this model). See DECISIONS.md.
+  stations:
+    - {code: CNB,  name: "Kanpur Central"}
+    - {code: PRYJ, name: "Prayagraj Jn"}
+    - {code: DDU,  name: "Pt. DD Upadhyaya Jn (Mughalsarai)"}
+    - {code: GAYA, name: "Gaya Jn"}
+    - {code: DHN,  name: "Dhanbad Jn"}
+    - {code: ASN,  name: "Asansol Jn"}
+  distances_km: [200, 140, 190, 190, 80]   # between consecutive stations
+  entry_approach_km: 30     # approach stretch before CNB (controlled by the CNB agent)
+  exit_km: 40               # stretch beyond ASN until trains leave the model
+  block_km: 10              # nominal fixed-block length; each section is split into round(d/10) equal blocks
+  loop_capacity: 1          # one loop/siding per station, holds one train
+  approach_zone_km: 12      # interlocking approach zone: freight inside it triggers a precedence decision
+  turnout_speed_kmh: 30     # speed through loop turnouts
+  turnout_zone_km: 2        # distance before/after the station run at turnout speed when looping
+
+trains:
+  classes:
+    VB:  {name: "Vande Bharat", kind: passenger, speed_kmh: 150, priority: 1.5, overlap_km: 0.6, dwell_min: 2}
+    RAJ: {name: "Rajdhani",     kind: passenger, speed_kmh: 130, priority: 1.3, overlap_km: 0.6, dwell_min: 2}
+    EXP: {name: "Express",      kind: passenger, speed_kmh: 110, priority: 1.0, overlap_km: 0.6, dwell_min: 3}
+    FRT: {name: "BOXN/BCN freight", kind: freight, speed_kmh: 60, priority: 1.0, overlap_km: 1.2, dwell_min: 0}
+  freight_braking_km: 1.2   # braking distance at line speed; also the freight block overlap (extra clearance)
+
+time:
+  epoch_min: 5              # decision epoch
+  substeps_per_epoch: 5     # 1-minute movement substeps inside an epoch
+  horizon_epochs: 216       # nominal 18 h timetable horizon
+  hard_cap_epochs: 288      # episode hard cap (24 h); unfinished trains are reported as not cleared
+
+timetable:
+  injection_window_min: 720         # trains are scheduled to enter during the first 12 h
+  target_utilization: [1.20, 1.50]  # band for busiest-section utilization (see timetable.py)
+  passenger_share: 0.6              # 3:2 passenger:freight
+  passenger_mix: {VB: 0.2, RAJ: 0.3, EXP: 0.5}
+  departure_jitter_min: 4           # actual entry = scheduled + U(0, jitter)
+  initial_delay_prob: 0.3           # probability a train arrives at the corridor already late
+  initial_delay_mean_min: 12        # exponential mean of that initial delay
+  max_calibration_iters: 60
+
+control:
+  window_min: 120           # controller look-ahead: covers the catch-up horizon of the longest (200 km) section
+  catchup_margin_min: 5     # conflict if passenger would come within this margin of the freight before the next loop
+  max_consecutive_holds: 2  # interlocking timeout: after 2 held epochs (10 min) a further HOLD is ignored
+  invalid_penalty: 100.0    # reward penalty for an invalid/unsafe action (siding occupied, no braking room)
+
+reward:
+  w_p: 10.0                 # weight on passenger delay-minutes (priority-weighted)
+  w_f: 1.0                  # weight on freight delay-minutes
+  mode: shared              # shared | local  (ablation A)
+
+# State discretisation. Bin edges are right-open: value v falls in bin k where edges[k-1] <= v < edges[k].
+discretization:
+  eta_edges_min: [10, 25, 50, 80]     # most urgent conflicting passenger's ETA at the station -> 5 bins
+  dist_edges_km: [4, 8]               # freight distance to station -> 3 bins, plus a 4th 'already in loop' bin
+  speed_edges_kmh: [1]                # freight speed: stopped / moving -> 2 bins
+  margin_edges_km: [0]                # braking margin: no room / room -> 2 bins
+  loop_levels: 2                      # loop free / occupied-or-reserved
+  local_delay_edges_min: [2, 8]       # passenger delay-min accrued in own section last epoch -> 3 bins
+  congestion_edges: [0.25, 0.55]      # downstream congestion score -> 3 levels (0/1/2), ~terciles under baselines
+  use_downstream_signal: true         # ablation B switches this off
+
+learning:
+  alpha: 0.10
+  gamma: 0.95               # per 5-minute epoch (SMDP discounting between an agent's decisions)
+  epsilon: {start: 1.0, end: 0.05, decay_frac: 0.7}   # linear decay over the first 70% of episodes
+  # Neutral initialisation: Q0 = r_bar / (1 - gamma), r_bar = typical per-epoch team reward (about -160 under
+  # random/heuristic play on training timetables; divided by the number of agents for local rewards).
+  # Zero init is strongly optimistic with all-negative rewards and alpha=0.1 (see DECISIONS.md).
+  q_init_reward_per_epoch: -160.0
+
+experiment:
+  train_episodes: 500               # limited by the ~30 min laptop budget for `make all` (see DECISIONS.md)
+  n_seeds: 10
+  eval_timetables_per_seed: 5       # held-out timetables per run (disjoint from training and between runs)
+  train_timetable_base: 1000000     # training timetable seed = base * (run+1) + episode
+  eval_timetable_base: 900000000    # held-out timetable seed = base + run * 1000 + k
+  bootstrap_resamples: 10000
+  curve_smooth: 10
+  replay_seeds: 3                   # number of shared held-out timetables exported as replays
+  workers: 0                        # 0 = os.cpu_count() - 1
+  sweep:
+    alphas: [0.05, 0.10, 0.20]
+    gammas: [0.90, 0.95, 0.99]
+    epsilon_schedules:
+      fast:    {start: 1.0, end: 0.05, decay_frac: 0.35}
+      default: {start: 1.0, end: 0.05, decay_frac: 0.7}
+      slow:    {start: 1.0, end: 0.05, decay_frac: 1.0}
+    n_seeds: 3
+    algos: [iql, sarsa]

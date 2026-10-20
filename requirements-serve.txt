@@ -1,0 +1,5 @@
+# Runtime dependencies of the deployed service (API + live simulator). The full toolchain is in requirements.txt.
+numpy>=1.26
+PyYAML>=6.0
+fastapi>=0.110,<1
+uvicorn>=0.29,<1

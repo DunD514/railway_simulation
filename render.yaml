@@ -1,0 +1,14 @@
+# Render Blueprint: New > Blueprint in the Render dashboard, pick this repo.
+services:
+  - type: web
+    name: rail-precedence
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      # Worker processes for scenario evaluation and training. Match it to the plan's CPUs: 1 on free/starter,
+      # more on larger plans. More workers than cores only slows things down and uses memory (~80 MB each).
+      - key: RAIL_WORKERS
+        value: "1"
