@@ -37,7 +37,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1024)  # result JSON is up to ~1
 _SAFE = re.compile(r"^[A-Za-z0-9_.\-]+$")
 EVAL_PAGES = {
     "eval": "eval_main.json", "ablations": "ablations.json", "sensitivity": "sensitivity.json",
-    "behavior": "behavior.json", "replays": "replays/index.json",
+    "behavior": "behavior.json", "behaviour": "behavior.json", "replays": "replays/index.json",
 }
 
 
